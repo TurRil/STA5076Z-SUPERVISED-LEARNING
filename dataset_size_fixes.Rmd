@@ -1,0 +1,45 @@
+---
+title: "Dataset Creation - Size Refresh"
+author: "Corne Oosthuizen - OSTAND005"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Dataset Size refresh
+
+## Load Utitilities
+```{r setup-1}
+source("utils.R")
+
+dataset.list <- dataset.stats
+
+for (i in 1:nrow(dataset.list)) {
+  df.name <- dataset.list[i, 1]
+  df.data <- readRDS(paste('data/', df.name, '.rds', sep=""))
+  assign(df.name, df.data) 
+}
+
+rm(df.name)
+rm(df.data)
+rm(i)
+
+```
+
+## Refresh sizes
+```{r}
+
+for(i in 1:nrow(dataset.list)) {
+  source.df <- eval(parse(text = dataset.list[i,]$name))
+  
+  dataset.list[i,]$size_b <- object.size(source.df)
+}
+
+#dataset.empty <- as.data.frame(dataset.empty)
+
+write.csv(dataset.list, file = 'data/dataset_creation.csv')
+
+dataset.list
+```

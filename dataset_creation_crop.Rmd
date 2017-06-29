@@ -1,0 +1,59 @@
+---
+title: "Dataset Creation"
+author: "Corne Oosthuizen - OSTAND005"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Crop Images
+
+## Load Utitilities
+
+```{r setup-1}
+source("utils.R")
+
+dataset.list <- subset(dataset.stats, pixels != 0)
+
+for (i in 1:length(dataset.list)) {
+  df.name <- dataset.list[i, 1]
+  df.data <- readDF(paste('data/', df.name, '.csv', sep=""))
+  assign(df.name, df.data) 
+}
+
+rm(df.name)
+rm(df.data)
+rm(i)
+```
+
+## Crop
+
+```{r cropping}
+
+par(mfrow=c(1,3), pty='s', mar=c(1,1,1,1), xaxt='n', yaxt='n')
+
+digits <- apply(train_28[,-1], 2, sum)
+digits <- digits / nrow(train_28) * 255
+z <- array(digits, dim=c(28,28))
+z[z > 0] = 1
+image(1:28,1:28, z, col = gray((128-(0:128))/128), main="28", asp=1)
+
+digits <- apply(train_14[,-1], 2, sum)
+digits <- digits / nrow(train_14) * 255
+z <- array(digits, dim=c(14,14))
+z[z > 0] = 1
+image(1:14,1:14, z, col = gray((128-(0:128))/128), main="14", asp=1)
+
+
+digits <- apply(train_7[,-1], 2, sum)
+digits <- digits / nrow(train_7) * 255
+z <- array(digits, dim=c(7,7))
+z[z > 0] = 1
+image(1:7,1:7, z, col = gray((128-(0:128))/128), main="7", asp=1)
+
+
+```
+
+Cropping the images would not be useful.

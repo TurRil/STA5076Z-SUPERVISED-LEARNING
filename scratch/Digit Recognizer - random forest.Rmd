@@ -1,0 +1,102 @@
+---
+title: "Image Processing"
+author: "Jesin Fahad"
+date: "April 11, 2017"
+output: html_document
+---
+
+
+
+
+```{r setup, include=FALSE, fig.width= 9, fig.height= 9}
+knitr::opts_chunk$set(echo = TRUE,warning=FALSE,message=FALSE)
+```
+
+```{r}
+
+# You can write R code here and then click "Run" to run it on our platform
+
+library(readr)
+
+# The competition datafiles are in the directory ../input
+# Read competition data files:
+#train <- read_csv("../input/train.csv")
+#test <- read_csv("../input/test.csv")
+
+FILE.TRAIN <- "../mnist_data/mnist_train.csv"
+FILE.TEST <- "../mnist_data/mnist_test.csv"
+
+train <- read.table(FILE.TRAIN, header = T, dec = ".", sep =",")
+test <- read.table(FILE.TEST, header = T, dec = ".", sep =",")
+
+
+```
+## Plot the average image of each digit
+```{r}
+
+
+par(mfrow=c(4,3),pty='s',mar=c(1,1,1,1),xaxt='n',yaxt='n')
+all_img<-array(dim=c(10,28*28))
+for(di in 0:9)
+{
+  all_img[di+1,]<-apply(train[train[,1]==di,-1],2,sum)
+  all_img[di+1,]<-all_img[di+1,]/max(all_img[di+1,])*255
+   
+  z<-array(all_img[di+1,],dim=c(28,28))
+  z<-z[,28:1] ##right side up
+  image(1:28,1:28,z,col = grey(0:70/70),main=di)
+}
+```
+
+## Plotting the first 10 rows of the train set
+
+
+```{r}
+par(mfrow=c(4,3),pty='s',mar=c(1,1,1,1),xaxt='n',yaxt='n')
+all_img<-array(dim=c(21,28*28))
+for(dim in 1:10)
+{
+
+all_img[dim,]<-apply(train[dim,-1],2,sum)
+number<-train[dim,1]
+z<-array(all_img[dim,],dim=c(28,28))
+z<-z[,28:1] ##right side up
+image(1:28,1:28,z,main=number)
+}
+```
+
+## Random Forest Predictions on the test data 
+
+
+```{r}
+# Creates a simple random forest benchmark
+
+library(randomForest)
+library(readr)
+
+
+labels = as.factor(train$label)
+train1<-train[,-1]
+rf <- randomForest(train1, labels, xtest=test[,-1], ntree=25)
+predictions <- data.frame(ImageId=1:nrow(test),Label=rf$test$predicted)
+head(predictions)
+write_csv(predictions, "digit_predict.csv") 
+
+```
+### Prediction for the first 30 rows of test data using random forest 
+
+```{r}
+par(mfrow=c(6,6),pty='s',mar=c(1,1,1,1),xaxt='n',yaxt='n')
+all_img<-array(dim=c(30,28*28))
+predictions1 <- data.frame(Label=rf$test$predicted,test[,-1])
+
+for(dim in 1:30)
+{
+  all_img[dim,]<-apply(predictions1[dim,-1],2,sum)
+  number<-predictions1[dim,1]
+  z<-array(all_img[dim,],dim=c(28,28))
+  z<-z[,28:1] ##right side up
+  image(1:28,1:28,z,main=number)
+}
+```
+

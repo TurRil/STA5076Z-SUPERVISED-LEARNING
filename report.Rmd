@@ -1,0 +1,210 @@
+---
+title: "STA5076Z: SUPERVISED LEARNING - PROJECT"
+author: "Corne Oosthuizen - OSTAND005"
+date: 'Due: 30 July 2017'
+output:
+  word_document: default
+  html_document:
+    theme: cosmo
+    toc: yes
+    toc_depth: 2
+  comment: '>'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r getUtils}
+source("utils.R")
+
+dataset.list <- dataset.stats
+```
+
+# 1 - Handwritten Digit Classification
+
+## Problem Statement
+
+The MNIST (Modiﬁed National Institute of Standards and Technology) dataset comprises tens of thousands of grey-scale, handwritten digits that have been size-normalised and centred in a ﬁxed-size image. Each image is 28 pixels in height and width, with 784 pixels in total. Each pixel has an integer value ranging from 0 to 255 indicating the darkness of that pixel, where darker pixels have larger numbers. Each image has also been labelled with the digit that it represents. Your goal is to develop an accurate classiﬁer that can be used to identify the digit in a new handwritten image^[1]^.
+
+The dataset as provided on Vula resources contained a training (60,000 observations) and test (10,000 observations) set. Each observation describes a single digit with the label defining what the pixels represent, followed by the 784 pixels comprising of the __28x28__ image (the pixels are described in columns named pix*<i>*_*<j>*, where *<i>* is the row and *<j>* is the column of the pixel).
+
+label | pix1_1 | pix1_2 | ... | pix28_27 | pix28_28
+
+The following digits where assigned to me for this project: 
+
+
+![](img\obs_train.png)
+![](img\obs_test.png)
+
+Digit | Train | Test
+----- | ----- | ----
+0 | 5923 | 980
+2 | 5958 | 1032
+4 | 5842 | 982
+6 | 5918 | 958
+7 | 6265 | 1028
+Total | 29906 | 4980
+
+## Data Trasformations
+
+The inital dataset contains images comprising of __28x28__ pixels, as shown below:
+
+![Initial Digits](img\digits_28.png)
+
+My initial thought was that it might be beneficial to reduce the images (scale) to a smaller size to therefore also reduce the number of variables (pixels) that would have to be used in the learning models. The scalled versions (__14x14__ and __7x7__) of the above images are shown below:
+
+![Digits 14x14](img\digits_14.png)
+![Initial 7x7](img\digits_7.png)
+
+It is clear that with scaling there will be some loss of data but the digits are still recognisable at __14x14__, so that is the size we can use for the analysis. The other sizes are still generated for all the subsequent transformations which will allow comparison at a later stage.
+
+Some of the given digits have some undersirable charactericstics if they are to be recoginised by a digital process, one of these is that the line thickness of the digits are not equal and because we don't really care about the thickness but only the shape it would be good to apply a shape analysis process called topological skeletonisation to each digit ^[2]^, the process involves the thinning of a shpae to the medial line that aproximates the path of the original.The skeletonised version of the character is shown in red.
+
+ ![Skeletonisation Example](img\skeletonisation.png)
+ 
+To apply this filter to the digits the best result was obtained by first smoothing the digit and then applying the skeletonise method, thus resulting in the following:
+
+![Digits 28x28 - Skeleton](img\digits_28_skel.png)
+![Digits 14x14 - Skeleton](img\digits_14_skel.png)
+![Initial 7x7 - Skeleton](img\digits_7_skel.png)
+
+The next step was traying to look at reducing the number of variables by looking at cropping the images. To see if this was possible the average pixel density for all the digits in the dataset would give us the following:
+
+![Digits - Average](img\digits_avg.png)
+
+![](img\digits_avg_all.png)
+
+The last image (on the right) shows the combined average pixel density (with added exageration of the colour depth to be able to see if cropping can be used), unfortunately the image indicates that cropping specific columns might skew the pixel data. This then would not work for reducing the dataset.
+
+Through some research refering to additional image transformations and digit recognition techniques^[4]^ it might be possible to increase the accuracy of the models by adding in the symmetry analysis of a digit to improve the description of the shape^[5]^. The graph showing the symmetry analysis of our chosen 5 digits are as follows:
+
+![](img\digit_0_sym.png)
+
+![](img\digit_2_sym.png)
+
+![](img\digit_4_sym.png)
+
+![](img\digit_6_sym.png)
+
+![](img\digit_7_sym.png)
+
+Now that there is a reasonable set of data for the digits we can run a Principal Component Analysis (PCA) on each one as some of the supervised techniques to follow require the variables to be uncorrelated. The selection for the PCA variance is set to use the components that describe 99% of the variance.
+
+![](img\pca_28_a.png)
+
+![](img\pca_28_b.png)
+
+![](img\pca_14_a.png)
+
+![](img\pca_14_b.png)
+
+![](img\pca_7_a.png)
+
+![](img\pca_7_b.png)
+
+The dataset generation takes quite a while to run as it transforms the raw training and test data with the described transformations while document the execution time and the resulting size of the data objects. The final number of files is **140** as each dataset is stored as a comma delimited file (csv) and a R object store (rds), the PCA vector is also stored for later re-use.
+
+The final set of possible data sets to run our analysis on looks like:
+
+
+The table describes the name, type, transformation actions performed on that dataset, the relevant size (dimensions and bytes), and the relative time it took to produce the set.
+
+Running a cluster analysis and visualising the distribution with Multidimentional scaling gives:
+
+
+TODO: DENDOGRAM and MDS
+
+## KNN
+
+## SVM
+
+## Random Forest
+
+## Neural Network
+
+## Conclusion
+
+TODO: Compare model accuracy
+
+
+
+You have been randomly assigned 5 digits to classify (see digits.pdf on Vula). You should begin by restricting your datasets to only contain the images for the digits that you have been assigned. Your ﬁnal training and test sets should contain roughly 30,000 and 5,000 images, respectively.
+
+You must submit a neat report with your ﬁndings. In your report, you should:
+* Compare the performances of diﬀerent classiﬁers and determine which is optimal. You may use any supervised or unsupervised techniques to tackle this problem
+* Clearly motivate your model choices and hyperparameter settings
+* Clearly explain your ﬁndings. Why does method A outperform method B?
+* Use appropriate graphs and tables to summarise your ﬁndings
+
+You will be heavily penalised if you simply dump model outputs into a document without explaining your results. You need to demonstrate that you understand what you are doing!
+
+Creativity and out-of-the-box thinking will be rewarded (if correct)!
+
+
+# 2 - Student Performance Data Set
+
+## Problem Statement
+
+## Data Description
+
+
+
+## Conclusion
+
+
+
+You are required to source an interesting supervised learning problem of your own. Your dataset could come from your organisation or from an online repository such as www.kaggle.com. It must contain a numerical outcome variable, and a suﬃciently large number of predictors and observations. You should model these data using various supervised learning techniques and identify the best method for your problem.
+
+You must submit a neat report with your ﬁndings. In your report, you should:
+* Very clearly explain your problem. Remember that your marker will not be familiar with your speciﬁc problem
+* Clearly describe your dataset, both in writing and with graphs and/or tables
+* Compare the performances of diﬀerent models and determine which is optimal. You may use any supervised or unsupervised techniques to tackle this problem • Clearly motivate your model choices and hyperparameter settings
+* Clearly explain your ﬁndings. Why does method A outperform method B?
+* Use appropriate graphs and tables to summarise your ﬁndings
+
+Each student should work on a diﬀerent dataset. If you intend to use a dataset from a public repository, please let your lecturer know which dataset you are using so that it can be reserved for you only (ﬁrst come, ﬁrst served!).
+
+If you intend on working with conﬁdential data from your organisation, note that only the course lecturers will have access to your ﬁnal report and that this will be returned to you once it is marked. The data and ﬁndings will be treated as conﬁdential and will not be disclosed to anyone at any time.
+
+
+
+# References
+
+* Project Description (SupLearnProject2017.pdf), Author: Miguel Lacerda. Last Accessed: 19-May-2017 14:06. Vula Resources. 
+* Skeletonisation, Author: Jon Clayden. Last Accessed: 28-June-2017. URL: https://www.rdocumentation.org/packages/mmand/versions/1.5.0
+* Image: Skel.png. Last Accessed: 28-June-2017. URL: https://commons.wikimedia.org/wiki/File:Skel.png
+* Classiﬁcation and Image Processing on MNSIT Data Set, Author: Andrew Halsaver, Brian Becker, & Farshad Chitchian. Last Accessed: 28-June-2017. URL: http://bribecker.github.io/img/handWrittenDigitClassification.pdf
+* MNIST Dataset: Classifying Images, Author: Brian Becker. Last Accessed: 28-June-2017. URL: http://bribecker.github.io/blog/MNIST-3/
+
+5
+
+* R Core Team (2016). R: A language and environment for statistical computing. R Foundation for Statistical Computing,
+Vienna, Austria. URL: https://www.R-project.org/.
+* Jon Clayden (2017). mmand: Mathematical Morphology in Any Number of Dimensions. R package version 1.5.0.
+  https://CRAN.R-project.org/package=mmand
+* Joern Schulz Peter Toft <pto@imm.dtu.dk> Jesper James Jensen <jjj@oedan.dk> Peter Philipsen <pap@imm.dtu.dk> (2010). PET:
+  Simulation and Reconstruction of PET Images. R package version 0.4.9. https://CRAN.R-project.org/package=PET
+* Maechler, M., Rousseeuw, P., Struyf, A., Hubert, M., Hornik, K.(2016).  cluster: Cluster Analysis Basics and Extensions. R
+  package version 2.0.5.
+* Venables, W. N. & Ripley, B. D. (2002) Modern Applied Statistics with S. Fourth Edition. Springer, New York. ISBN
+  0-387-95457-0
+* Jan de Leeuw, Patrick Mair (2009). Multidimensional Scaling Using Majorization: SMACOF in R. Journal of Statistical Software,
+  31(3), 1-30. URL http://www.jstatsoft.org/v31/i03/.
+* Maechler, M., Rousseeuw, P., Struyf, A., Hubert, M., Hornik, K.(2016).  cluster: Cluster Analysis Basics and Extensions. R
+  package version 2.0.5.
+* Venables, W. N. & Ripley, B. D. (2002) Modern Applied Statistics with S. Fourth Edition. Springer, New York. ISBN
+  0-387-95457-0
+* Jan de Leeuw, Patrick Mair (2009). Multidimensional Scaling Using Majorization: SMACOF in R. Journal of Statistical Software,
+  31(3), 1-30. URL http://www.jstatsoft.org/v31/i03/.
+* Max Kuhn. Contributions from Jed Wing, Steve Weston, Andre Williams, Chris Keefer, Allan Engelhardt, Tony Cooper, Zachary
+  Mayer, Brenton Kenkel, the R Core Team, Michael Benesty, Reynald Lescarbeau, Andrew Ziem, Luca Scrucca, Yuan Tang, Can Candan
+  and Tyler Hunt. (2017). caret: Classification and Regression Training. R package version 6.0-76.
+  https://CRAN.R-project.org/package=caret
+  
+
+```{r reference, echo = FALSE, eval = FALSE}
+# To get current citation information at time of document writing
+#citation("caret")
+```
+

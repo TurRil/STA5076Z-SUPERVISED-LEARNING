@@ -1,0 +1,80 @@
+---
+title: "Create Skeletonise Images"
+author: "Corne Oosthuizen - OSTAND005"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Cluster Analysis and Multidimentional Scaling
+
+```{r setup-1}
+source("utils.R")
+
+dataset.list <- dataset.stats
+
+```
+
+
+```{r, echo=FALSE, eval=TRUE}
+library(cluster)
+library(MASS)
+library(smacof)
+
+dataset.stats[,2] <- factor(dataset.stats[,2]) # type
+dataset.stats[,3] <- factor(dataset.stats[,3]) # pixels
+dataset.stats[,4] <- factor(dataset.stats[,4]) # sym
+dataset.stats[,5] <- factor(dataset.stats[,5]) # skeleton
+dataset.stats[,6] <- factor(dataset.stats[,6]) # pca
+head(dataset.stats)
+
+Dmat <- daisy(dataset.stats[, -1], metric="gower")
+```
+
+```{r pca}
+#source("A2Rplot.R")
+library(dendextend)
+library(stringr)
+
+out.complete.euc <- hclust(Dmat, method="complete")
+out.complete.euc$labels <- dataset.stats[,1]
+plot(out.complete.euc, cex = 0.5)
+abline(h=0.6)
+abline(h=0.5)
+abline(h=0.425)
+
+dend <- as.dendrogram(out.complete.euc)
+
+dend <- set(dend, "labels_cex", 0.5)
+
+par(mar = c(2,1,1,4))
+dend %>% ladderize %>%  plot(horiz = TRUE, cex.axis=0.5); abline(v = .5, col = 2, lty = 2)
+
+# decide to cut the tree into 5 clusters
+out.complete.euc <- cutree(out.complete.euc, k = 5) #h = 0.5) #h=20)
+
+# view cluster allocation
+names (out.complete.euc) <- dataset.stats[,1]
+#sort(out.complete.euc)
+
+# CLUSTER PROFILING
+clusvec <- out.complete.euc
+max(clusvec)
+
+colvec <- c("#4D4D4D","#5DA5DA","#FAA43A","#60BD68","#F15854","#B276B2")
+
+#######
+
+out.Euc <- smacofSym(Dmat, type="ratio")$conf
+
+# create empty plot
+plot (out.Euc, type="n", xlab="", ylab="", xaxt="n", yaxt="n", asp=1, main="Dmat")
+
+lbls <- apply(dataset.stats, 1, function(x){ return (paste(substr(x[2], 2, 2), str_pad(x[3], 2, pad = "0"), x[4], x[5], x[6], sep="")) })
+
+for (i in 1:nrow(dataset.stats)) {
+  text (out.Euc[i,1], out.Euc[i,2], lbls[i], col=colvec[clusvec[i]], cex=0.75)
+}
+```

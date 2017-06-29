@@ -1,0 +1,120 @@
+---
+title: "Dataset Symmetry Creation"
+author: "Corne Oosthuizen - OSTAND005"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Create Symmetries
+
+```{r setup-1}
+source("utils.R")
+
+dataset.list <- subset(subset(dataset.stats, pixels != 0), sym == 0)
+
+for (i in 1:nrow(dataset.list)) {
+  df.name <- dataset.list[i, 1]
+  df.data <- readDF(paste('data/', df.name, '.csv', sep=""))
+  assign(df.name, df.data) 
+}
+
+rm(df.name)
+rm(df.data)
+rm(i)
+
+```
+
+## Symmetry
+
+```{r symmetry}
+
+calcVerticalSymmetry <- function(digit, size) {
+
+    rowSumDiffs <- rep(0, size)
+    for (i in 1:size) {                     # loop through each row
+        hDiffs <- 0
+        for (j in 1:(ncol(digit)/2)) {      # loop through half of the columns
+            hDiffs = hDiffs + 1 / (abs(digit[i, j] - digit[i, ncol(digit) - j + 1]) + 1)
+        }
+        rowSumDiffs[i] <- hDiffs
+    }
+    return(rowSumDiffs)  # summarize each row's 'symmetry'
+}
+
+calcHorizontalSymmetry <- function(digit, size) {
+    
+    colSumDiffs <- rep(0, size)
+    for (j in 1:size) {                     # loop through each column
+        vDiffs <- 0
+        for (i in 1:(nrow(digit)/2)) {      # loop through half of the rows
+            vDiffs = vDiffs + 1 / (abs(digit[i, j] - digit[nrow(digit) - i + 1, j]) + 1)
+        }
+        colSumDiffs[j] <- vDiffs
+    }
+    return(colSumDiffs)  # summarize each cols' 'symmetry'
+}
+```
+
+Symmetry operation uses parralel foreach to process each line, don't know if this is faster than normal.
+
+```{r}
+library(foreach)
+library(doParallel)
+
+cores=detectCores()
+cl <- makeCluster(cores[1]-1) #not to overload your computer
+registerDoParallel(cl)
+
+#dataset.list = dataset.stats[dataset.stats$type == "test",]
+
+dataset.empty <- getEmptyStat()
+
+for (j in 1:nrow(dataset.list)) {
+  
+  df <- dataset.list[j,]
+  df.src <- eval(parse(text = df$name)) #"test_7_skel")) #test_7_skel
+  df.size <- df$pixels
+  
+  startTime <- Sys.time()
+  
+  finalMatrix <- foreach(i=1:nrow(df.src), .combine=rbind) %dopar% {
+     
+     digit <- matrix(as.numeric(df.src[i, -1]), nrow = df.size)
+    
+     v <- calcVerticalSymmetry(digit, df.size)
+     h <- calcHorizontalSymmetry(digit, df.size)
+      
+     c(v, h)
+  }
+  
+  new.df <- cbind(df.src$label, finalMatrix)
+  names(new.df) <- c('label', paste0('vSym', 1:df.size), paste0('hSym', 1:df.size))
+  
+  endTime <- Sys.time()
+  runTime <- as.numeric(difftime(endTime, startTime, units = "secs"))
+
+  filename <- paste(df$name, '_sym', sep="")
+  
+  write.csv(new.df, file = paste('data/', filename ,'.csv', sep =''))
+  saveRDS(new.df, file = paste('data/', filename ,'.rds', sep =''))
+    
+  dataset.empty <- rbind(dataset.empty, returnStat(name = filename, type = df$type, pixels = 0, 
+                                       sym = 1, # the one we are changing
+                                       sk = df$sk,
+                                       obs = dim(new.df)[1], var = dim(new.df)[2], 
+                                       time_s = runTime, # + df$time_s, 
+                                       size_b = object.size(new.df)))
+}
+
+dataset.empty <- as.data.frame(dataset.empty)
+#a <- rbind(dataset.stats, dataset.empty)
+#print(a)
+
+write.csv(dataset.empty, file = 'data/dataset_creation_sym.csv')
+
+#stop cluster
+stopCluster(cl)
+```

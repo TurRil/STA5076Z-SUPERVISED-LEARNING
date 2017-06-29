@@ -1,0 +1,269 @@
+---
+title: "Dataset Creation"
+author: "Corné Oosthuizen - OSTAND005"
+date: "22 June 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Get Data
+
+```{r getData}
+suppressMessages(library(mmand))
+suppressMessages(library(PET))
+suppressMessages(library(data.table))
+
+train.raw <- read.table("mnist_data/mnist_train.csv", header = T, dec = ".", sep =",")
+test.raw <- read.table("mnist_data/mnist_test.csv", header = T, dec = ".", sep =",")
+```
+
+Setup variables:
+```{r setup}
+myset <- c(0,2,4,6,7)
+type <- c("train", "test")
+
+train <- subset(train.raw, label == myset)
+test <- subset(test.raw, label == myset)
+
+train.list <- c()
+test.list <- c()
+
+dataset.stats <- data.frame(name = character(0), obs = integer(0), var = integer(0), time_s = numeric(0), size_b = numeric(0))
+```
+
+## Size
+
+```{r size}
+readDataset <- function(filename) {
+  df <- read.table(filename, header = T, dec = ".", sep =",")
+  return (df[ , !(names(df) %in% c('X'))]); # drop number column
+}
+
+resizeData <- function(source.df, size) {
+  
+  newDF <- data.frame(matrix(ncol = (size*size), nrow = nrow(source.df)))
+  newNames <- c('label')
+  l <- sqrt(length(source.df)-1)
+  
+  for (i in 1:size) {
+    newNames <- c(newNames, paste0('v',i,'_', 1:size))
+  }
+  
+  for (i in 1:nrow(source.df)) {
+    
+    digit <- matrix(as.numeric(source.df[i, -1]), nrow = l)
+    
+    s <- rescale(digit, size/l, triangleKernel())
+    newDF[i, ] <- as.vector(s)
+  }
+  resultDF <- cbind(source.df$label, newDF)
+  names(resultDF) <- newNames
+  return(resultDF)
+}
+
+createDataSet.resize <- function(source.df, source.name, source.type, new.sizes) {
+  
+  result = data.frame(name = character(0), obs = integer(0), var = integer(0), time_s = numeric(0), size_b = numeric(0))
+  for(s in 1:length(new.sizes)) {
+    
+    startTime <- proc.time()
+      
+      # resize original images to the selected sizes
+      new.df <- resizeData(source.df, new.sizes[s])
+
+    endTime <- proc.time()
+    runTime <- endTime - startTime
+    
+    # filename to store new dataset in
+    filename <- paste(source.name, '_', new.sizes[s], sep="")
+    
+    # and assign it to a variable in the workspace
+    assign(filename, new.df) 
+    
+    # add it to the list of available data sets
+    x <- paste(source.type, '.list', sep = "") 
+    assign(x, c( eval(parse(text = x)), filename))
+    
+    # write out the new dataset
+    write.csv(new.df, file = paste('data/', filename ,'.csv', sep =''))
+    
+    # add it's details for comparison
+    result <- rbindlist(list(result, as.list(c(filename, dim(new.df)[1], dim(new.df)[2], runTime[3], object.size(new.df)))))
+  }
+  
+  return (result);
+}
+
+```
+
+```{r}
+
+for(k in 1:length(type)) {
+  source.df <- eval(parse(text = type[k]))
+  dataset.stats <- rbind(dataset.stats, createDataSet.resize(source.df, type[k], type[k], new.sizes = c(28, 14, 7)))
+}
+rm(k)
+
+write.csv(dataset.stats, file = 'data/dataset_creation.csv')
+dataset.stats
+```
+
+```{r symmetry}
+
+calcVerticalSymmetry <- function(data, rowNumber, size) {
+    digit <- matrix(as.numeric(data[rowNumber, -1]), nrow = size)
+    digit <- digit[, nrow(digit):1]  # reverse matrix rows (flip images upside right)
+    
+    rowSumDiffs <- rep(0, size)
+    for (i in 1:size) {                     # loop through each row
+        hDiffs <- 0
+        for (j in 1:(ncol(digit)/2)) {    # loop through half of the columns
+            hDiffs = hDiffs + 1 / (abs(digit[i, j] - digit[i, ncol(digit) - j + 1]) + 1)
+        }
+        rowSumDiffs[i] <- hDiffs
+    }
+    return(rowSumDiffs)  # summarize each row's 'symmetry'
+}
+
+calcHorizontalSymmetry <- function(data, rowNumber, size) {
+    digit <- matrix(as.numeric(data[rowNumber, -1]), nrow = size)
+    digit <- digit[, nrow(digit):1]  # reverse matrix rows (flip images upside right)
+    
+    colSumDiffs <- rep(0, size)
+    for (j in 1:size) {                     # loop through each column
+        vDiffs <- 0
+        for (i in 1:(nrow(digit)/2)) {    # loop through half of the rows
+            vDiffs = vDiffs + 1 / (abs(digit[i, j] - digit[nrow(digit) - i + 1, j]) + 1)
+        }
+        colSumDiffs[j] <- vDiffs
+    }
+    return(colSumDiffs)  # summarize each cols' 'symmetry'
+}
+
+createDataSet.symmetries <-function(source.df, source.name, source.type, addToDF = TRUE) {
+    
+  startTime <- proc.time()
+  
+    l <- sqrt(length(source.df)-1)
+    
+    vsDF <- data.frame(matrix(ncol = l, nrow = nrow(source.df)))
+    hsDF <- data.frame(matrix(ncol = l, nrow = nrow(source.df)))
+    
+    for (i in 1:nrow(df)) {
+        vsDF[i, ] <- calcVerticalSymmetry(source.df, i, l)
+        hsDF[i, ] <- calcHorizontalSymmetry(source.df, i, l)
+    }
+    
+    names(vsDF) <- paste0('vSym', 1:l)
+    names(hsDF) <- paste0('hSym', 1:l)
+    
+    new.df <- cbind(source.df$label, vsDF, hsDF)
+    names(new.df) <- c('label', names(vsDF), names(hsDF))
+      
+    if (addToDF) {
+      new.df <- cbind(source.df, vsDF, hsDF)
+      names(new.df) <- c(names(source.df), names(vsDF), names(hsDF))
+    }
+    
+  endTime <- proc.time()
+  runTime <- endTime - startTime
+  
+  # filename to store new dataset in
+  x <- '_sym'
+  if (addToDF) {
+    x <- '_addsym'   
+  }
+  filename <- paste(source.name, x, sep="")
+  
+  # and assign it to a variable in the workspace
+  assign(filename, new.df) 
+  
+  # add it to the list of available data sets
+  x <- paste(source.type, '.list', sep = "") 
+  assign(x, c( eval(parse(text = x)), filename))
+  
+  # write out the new dataset
+  write.csv(new.df, file = paste('data/', filename ,'.csv', sep =''))
+  
+  # add it's details for comparison
+  result = as.data.frame
+  data.frame(name = character(0), obs = integer(0), var = integer(0), time_s = numeric(0), size_b = numeric(0))
+  
+  exportData <- rbindlist(list(exportData, as.list(c(filename, dim(new.df)[1], dim(new.df)[2], runTime[3], object.size(new.df)))))
+}
+```
+
+
+```{r}
+for(k in 1:length(type)) {
+  
+  x <- paste(type[k], '.list', sep = "")
+  for(item in eval(parse(text = x))) {
+    rdf <- eval(parse(text = item))
+    engineerSymmetriesOnly(rdf, name = item, addToDF = F)
+  }
+}
+
+```
+
+```{r pca}
+generatePCA <- function(df, name) {
+  
+  startTime <- proc.time()
+  
+    pca.out <- prcomp(df[,-1])
+    
+    pca.cutoff <- min(which(summary(pca.out)$importance[3,] > 0.985))
+    
+    feature.vector <- pca.out$rotation[, 1:pca.cutoff]
+    compact.data <- t( t(feature.vector) %*% t(df[,-1]) ) # Take the itersect of features and data frame and flip it back
+  
+    newDF <- data.frame(matrix(ncol = pca.cutoff + 1, nrow = nrow(df)))
+    newNames <- c('label', paste0('pca_', 1:pca.cutoff))
+    
+    resultDF <- cbind(df$label, compact.data)
+    names(resultDF) <- newNames
+  
+    filename <- paste(gsub("(\\.)", "_", name),'_pca', sep="")
+    write.csv(newDF, file = paste('data/', filename ,'.csv', sep =''))
+  
+  endTime <- proc.time()
+  runTime <- endTime - startTime
+  exportData <- rbindlist(list(exportData, as.list(c(filename, dim(newDF)[1], dim(newDF)[2], runTime[3], object.size(newDF)))))
+  
+  pca.var <- (pca.out$sdev)^2
+  pca.var.max <- round(max(pca.var),1)
+  
+  pca.comp <- 1:length(pca.var)
+  pca.comp <- as.integer(pca.comp)
+  
+  plot(pca.comp, pca.var, 
+       main = paste("Scree Plot (", name ,")", sep =""), 
+       xlab = "Number of Components", 
+       ylab = "Variance",
+       type = "l",
+       col  = "blue",
+       ylim = c(0, pca.var.max),
+       axes = FALSE)
+  
+  axis(1, at=1:length(pca.comp))
+  axis(2, at=0:max_Var)
+  abline(v = pca.cutoff, col="red", lty=3)
+  
+  plot(summary(pca.out)$importance[3,], type="l", ylab="%variance explained", xlab="nth component (decreasing order)")
+  abline(h = 0.99, col = "red")
+  abline(v = pca.cutoff, col="red", lty=3)
+}
+
+#pca.28 <- princomp(train.28, scores=T)
+#pca.14 <- princomp(train.14, scores=T)
+#pca.7 <- princomp(train.7, scores=T)
+
+for (df.name in train.list) {
+  rdf <- eval(parse(text = df.name))
+  generatePCA(rdf, df.name)
+}
+```

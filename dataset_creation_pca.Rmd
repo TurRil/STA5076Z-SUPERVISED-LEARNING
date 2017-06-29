@@ -1,0 +1,124 @@
+---
+title: "Dataset Creation - PCA"
+author: "Corne Oosthuizen - OSTAND005"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Create PCA versions of Datasets
+
+## Load Utitilities
+```{r setup-1}
+source("utils.R")
+
+dataset.list <- dataset.stats
+
+for (i in 1:nrow(dataset.list)) {
+  df.name <- dataset.list[i, 1]
+  df.data <- readDF(paste('data/', df.name, '.csv', sep=""))
+  assign(df.name, df.data) 
+}
+
+rm(df.name)
+rm(df.data)
+rm(i)
+
+```
+
+## Run PCA
+
+Applying the PCA to the training set and then using the corresponding vector to update the test set.
+
+```{r pca}
+createDataSet.pca <- function(source) {
+  
+  train.name <- source$name
+  train.df <- eval(parse(text = train.name))
+  
+  test.name <- sub("train","test", train.name)
+  test.df <- eval(parse(text = test.name))
+  
+  result <- getEmptyStat()
+  
+  startTime <- proc.time()
+  
+    pca.out <- prcomp(train.df[,-1])
+    
+    pca.cutoff <- min(which(summary(pca.out)$importance[3,] > 0.99))
+    
+    feature.vector <- pca.out$rotation[, 1:pca.cutoff]
+    newNames <- c('label', paste0('pca_', 1:pca.cutoff))
+    
+    # new training frame
+      compact.data <- t( t(feature.vector) %*% t(train.df[,-1]) ) # Take the itersect of features and data frame and flip it back
+    
+      trainDF <- data.frame(matrix(ncol = pca.cutoff + 1, nrow = nrow(train.df)))
+      trainDF <- cbind(train.df$label, compact.data)
+      
+      names(trainDF) <- newNames
+  
+    # new training frame
+      compact.data <- t( t(feature.vector) %*% t(test.df[,-1]) ) # Take the itersect of features and data frame and flip it back
+    
+      testDF <- data.frame(matrix(ncol = pca.cutoff + 1, nrow = nrow(test.df)))
+      testDF <- cbind(test.df$label, compact.data)
+      
+      names(testDF) <- newNames
+      
+  endTime <- proc.time()
+  runTime <- endTime - startTime
+  
+  train.filename <- paste(train.name, "_pca", sep="")
+  test.filename <- paste(test.name, "_pca", sep="")
+  
+  # write out the new dataset
+    write.csv(trainDF, file = paste('data/', train.filename ,'.csv', sep =''))
+    saveRDS(trainDF, file = paste('data/', train.filename, '.rds', sep =''))
+
+    write.csv(testDF, file = paste('data/', test.filename, '.csv', sep =''))
+    saveRDS(testDF, file = paste('data/', test.filename, '.rds', sep =''))
+    
+    saveRDS(feature.vector, file = paste('data/', train.filename, '_Vec.rds', sep =''))
+  
+  result <- rbind(result, returnStat(name = train.filename, type = "train", pixels = source$pixels, 
+                                     pca = 1, # the one we are changing
+                                     sk = source$sk,
+                                     sym = source$sym,
+                                     obs = dim(trainDF)[1], var = dim(trainDF)[2], 
+                                     time_s = runTime,
+                                     size_b = object.size(trainDF)))
+  
+  result <- rbind(result, returnStat(name = test.filename, type = "test", pixels = source$pixels, 
+                                     pca = 1, # the one we are changing
+                                     sk = source$sk,
+                                     sym = source$sym,
+                                     obs = dim(testDF)[1], var = dim(testDF)[2], 
+                                     time_s = runTime,
+                                     size_b = object.size(testDF)))
+    
+  # add it's details for comparison
+  return (result)
+}
+```
+
+
+```{r}
+
+# only select the training sets
+dataset.list <- dataset.list[dataset.list$pixels > 0 & dataset.list$type == "train",]
+
+dataset.empty <- getEmptyStat()
+
+for(i in 1:nrow(dataset.list)) {
+  dataset.empty <- rbind(dataset.empty, createDataSet.pca(dataset.list[i,]))
+}
+
+dataset.empty <- as.data.frame(dataset.empty)
+
+write.csv(dataset.empty, file = 'data/dataset_creation_pca.csv')
+
+dataset.empty
+```

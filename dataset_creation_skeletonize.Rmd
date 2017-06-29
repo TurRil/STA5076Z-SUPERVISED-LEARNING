@@ -1,0 +1,124 @@
+---
+title: "Create Skeletonise Images"
+author: "Corne Oosthuizen - OSTAND005"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Create Skeletonise Images
+
+## Setup variables
+
+```{r getUtils}
+source("utils.R")
+
+dataset.list <- dataset.stats
+
+train.raw <- read.table("data/raw/mnist_train.csv", header = T, dec = ".", sep =",")
+test.raw <- read.table("data/raw/mnist_test.csv", header = T, dec = ".", sep =",")
+```
+
+## Setup variables
+```{r setup}
+type <- c("train", "test")
+
+train <- train.raw[ (train.raw$label == 0 | train.raw$label == 2 | train.raw$label == 4 | train.raw$label == 6 | train.raw$label == 7), ]
+test <- test.raw[ (test.raw$label == 0 | test.raw$label == 2 | test.raw$label == 4 | test.raw$label == 6 | test.raw$label == 7), ]
+
+train.list <- c()
+test.list <- c()
+```
+
+## Transform Images
+
+```{r transform}
+shape.k <- shapeKernel(c(3,3), type="box")
+
+resizeData <- function(source.df, size, skeleton = FALSE) {
+  
+  newDF <- data.frame(matrix(ncol = (size*size), nrow = nrow(source.df)))
+  newNames <- c('label')
+  l <- sqrt(length(source.df)-1)
+  
+  for (i in 1:size) {
+    newNames <- c(newNames, paste0('v',i,'_', 1:size))
+  }
+  
+  for (i in 1:nrow(source.df)) {
+    
+    digit <- rotate(matrix(as.numeric(source.df[i, -1]), nrow = l))
+    
+    if (skeleton) {
+      digit <- skeletonise( medianFilter(digit, shape.k), shape.k, method="lantuejoul")
+    }
+
+    if (size < 28) {
+      s <- rescale(digit, size/l, triangleKernel())
+      newDF[i, ] <- as.vector(s)
+    } else {
+      newDF[i, ] <- as.vector(digit)
+    }
+  }
+  resultDF <- cbind(source.df$label, newDF)
+  names(resultDF) <- newNames
+  return(resultDF)
+}
+
+createDataSet.skeletonise <- function(source.df, source.name, source.type, new.sizes) {
+  
+  result <- getEmptyStat()
+  
+  for(s in 1:length(new.sizes)) {
+    
+    startTime <- Sys.time()
+      
+      # resize original images to the selected sizes
+      new.df <- resizeData(source.df, new.sizes[s], TRUE)
+
+    endTime <- Sys.time()
+    runTime <- as.numeric(difftime(endTime, startTime, units = "secs"))
+    
+    # filename to store new dataset in
+    filename <- paste(source.name, '_', new.sizes[s], '_skel', sep="")
+    
+    # and assign it to a variable in the workspace
+    assign(filename, new.df, envir = .GlobalEnv) 
+    
+    # add it to the list of available data sets
+    x <- paste(source.type, '.list', sep = "") 
+    assign(x, c( eval(parse(text = x)), filename), envir = .GlobalEnv)
+    
+    # write out the new dataset
+    write.csv(new.df, file = paste('data/', filename ,'.csv', sep =''))
+    saveRDS(new.df, file = paste('data/', filename ,'.rds', sep =''))
+    
+    # add it's details for comparison
+    result <- rbind(result, returnStat(name = filename, type = source.type, pixels = new.sizes[s], 
+                                       sk = 1, # the one we are changing
+                                       obs = dim(new.df)[1], 
+                                       var = dim(new.df)[2], time_s = runTime, size_b = object.size(new.df)))
+  }
+  
+  return (result);
+}
+```
+
+```{r doTransform}
+
+dataset.empty <- getEmptyStat()
+
+for(k in 1:length(type)) {
+  source.df <- eval(parse(text = type[k]))
+  dataset.empty <- rbind(dataset.stats, createDataSet.skeletonise(source.df, type[k], type[k], new.sizes = c(28, 14, 7)))
+}
+rm(k)
+
+dataset.empty <- as.data.frame(dataset.empty)
+#dataset.empty <- rbind(dataset.stats, dataset.empty)
+print(dataset.empty)
+
+write.csv(dataset.empty, file = 'data/dataset_creation_skel.csv')
+```

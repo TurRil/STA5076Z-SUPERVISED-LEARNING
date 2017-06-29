@@ -1,0 +1,99 @@
+---
+title: "Untitled"
+author: "Corné Oosthuizen - OSTAND005"
+date: "22 June 2017"
+output: html_document
+---
+
+sadsd
+
+```{r setup-1}
+source("utils.R")
+
+dataset.list <- subset(subset(dataset.stats, pixels != 0), sym == 0)
+
+for (i in 1:nrow(dataset.list)) {
+  df.name <- dataset.list[i, 1]
+  df.data <- readDF(paste('data/', df.name, '.csv', sep=""))
+  assign(df.name, df.data) 
+}
+
+rm(df.name)
+rm(df.data)
+rm(i)
+
+train_28_sym <- readDF('data/train_28_sym.csv')
+train_28_skel_sym <- readDF('data/train_28_skel_sym.csv')
+
+test_28_sym <- readDF('data/test_28_sym.csv')
+test_28_skel_sym <- readDF('data/test_28_skel_sym.csv')
+
+```
+
+## Symmetry
+
+```{r symmetry}
+train.list <- dataset.list[(dataset.list$type == "train" & dataset.list$sk == 0),]
+test.list <- dataset.list[(dataset.list$type == "test" & dataset.list$sk == 0),]
+
+train.skel.list <- dataset.list[(dataset.list$type == "train" & dataset.list$sk == 1),]
+test.skel.list <- dataset.list[(dataset.list$type == "test" & dataset.list$sk == 1),]
+
+dataset.empty <- getEmptyStat()
+
+
+addSymmetry <- function (to, from) {
+  
+  to.df <- eval(parse(text = to$name))
+  
+  startTime <- proc.time()
+
+      new.df <- cbind(to.df, from[,-1])
+
+  endTime <- proc.time()
+  runTime <- endTime - startTime
+  
+  filename <- paste(to$name,"_symAdd", sep="")
+  write.csv(new.df, file = paste('data/', filename ,'.csv', sep =''))
+  
+  return(returnStat(name = filename, 
+                       type = to$type, 
+                       pixels = to$pixels, 
+                       sk = to$sk,
+                       sym = 1, # the one we are changing
+                       obs = dim(new.df)[1], 
+                       var = dim(new.df)[2], 
+                       time_s = runTime[3] + to$time_s, 
+                       size_b = object.size(new.df)))
+}
+
+# train_28
+for(i in 1:nrow(train.list)) {
+  dataset.empty <- rbind(dataset.empty, addSymmetry(to = train.list[i,], from = train_28_sym))
+}
+
+# test_28
+for(i in 1:nrow(test.list)) {
+  dataset.empty <- rbind(dataset.empty, addSymmetry(to = test.list[i,], from = test_28_sym))
+}
+
+# train_28_skel
+for(i in 1:nrow(train.skel.list)) {
+  dataset.empty <- rbind(dataset.empty, addSymmetry(to = train.skel.list[i,], from = train_28_skel_sym))
+}
+
+# test_28_skel
+for(i in 1:nrow(test.skel.list)) {
+  dataset.empty <- rbind(dataset.empty, addSymmetry(to = test.skel.list[i,], from = test_28_skel_sym))
+}
+
+
+a <- rbind(dataset.stats, dataset.empty)
+print(a)
+
+```
+
+```{r}
+write.csv(a, file = 'data/dataset_creation.csv')
+```
+

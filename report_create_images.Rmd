@@ -1,0 +1,378 @@
+---
+title: "Create Report Images"
+author: "Corne Oosthuizen - OSTAND005"
+output: html_document
+---
+
+# Create Report Images
+
+## Setup variables
+
+```{r setup-1}
+source("utils.R")
+
+set.seed(12345)
+
+# get some images
+img_28 <- readRDS("data/test_28.rds")
+train_28 <- readRDS("data/train_28.rds")
+
+d.28 <- data.frame(matrix(ncol = (28*28 + 1), nrow = 5))
+names(d.28) <- names(img_28)
+
+d.28[1,] <- randomRows(img_28[img_28$label == 0,], 1)
+d.28[2,] <- randomRows(img_28[img_28$label == 2,], 1)
+d.28[3,] <- randomRows(img_28[img_28$label == 4,], 1)
+d.28[4,] <- randomRows(img_28[img_28$label == 6,], 1)
+d.28[5,] <- randomRows(img_28[img_28$label == 7,], 1)
+```
+
+```{r}
+png("img/obs_train.png", width = 500, height = 500)
+barplot(table(train_28$label), col = c("#B7DFCB","#5ABAD1","#3984B6","#264992","#161F63"), main="Number of Observations per Digit (Training)", mex = 0.8)
+dev.off()
+
+png("img/obs_test.png", width = 500, height = 500)
+barplot(table(img_28$label), col = c("#FDEA6F","#F3B355","#E97E3B","#CF4F29","#723C2C"), main="Number of Observations per Digit (Test)")
+dev.off()
+```
+
+
+Output initial
+```{r write_initial}
+
+png("img/digits_28.png", width = 800, height = 160)
+
+print5(d.28, 28)
+
+dev.off()
+
+```
+
+## Resize and skeleton
+
+```{r}
+shape.k <- shapeKernel(c(3,3), type="box")
+
+resizeData <- function(source.df, size, skeleton = FALSE) {
+  
+  newDF <- data.frame(matrix(ncol = (size*size), nrow = nrow(source.df)))
+  newNames <- c('label')
+  l <- sqrt(length(source.df)-1)
+  
+  for (i in 1:size) {
+    newNames <- c(newNames, paste0('v',i,'_', 1:size))
+  }
+  
+  for (i in 1:nrow(source.df)) {
+    
+    digit <- matrix(as.numeric(source.df[i, -1]), nrow = l)
+    
+    if (skeleton) {
+      digit <- skeletonise( medianFilter(digit, shape.k), shape.k, method="lantuejoul")
+    }
+
+    if (size < 28) {
+      s <- rescale(digit, size/l, triangleKernel())
+      newDF[i, ] <- as.vector(s)
+    } else {
+      newDF[i, ] <- as.vector(digit)
+    }
+  }
+  resultDF <- cbind(source.df$label, newDF)
+  names(resultDF) <- newNames
+  return(resultDF)
+}
+
+d.28.s <- resizeData(d.28, 28, T)
+
+d.14 <- resizeData(d.28, 14, F)
+d.14.s <- resizeData(d.28, 14, T)
+
+d.7 <- resizeData(d.28, 7, F)
+d.7.s <- resizeData(d.28, 7, T)
+```
+
+Output resize and skeleton.
+```{r}
+png("img/digits_28_skel.png", width = 800, height = 160)
+print5(d.28.s, 28)
+dev.off()
+
+png("img/digits_14.png", width = 800, height = 160)
+print5(d.14, 14)
+dev.off()
+
+png("img/digits_14_skel.png", width = 800, height = 160)
+print5(d.14.s, 14)
+dev.off()
+
+png("img/digits_7.png", width = 800, height = 160)
+print5(d.7, 7)
+dev.off()
+
+png("img/digits_7_skel.png", width = 800, height = 160)
+print5(d.7.s, 7)
+dev.off()
+```
+
+## Cropping
+```{r cropping}
+
+  d.0 <- apply(img_28[img_28$label == 0, -1], 2, sum) # apply sum to every column
+  d.0 <- array(d.0/max(d.0)*255, dim=c(28,28))
+  
+  d.2 <- apply(img_28[img_28$label == 2, -1], 2, sum)
+  d.2 <- array(d.2/max(d.2)*255, dim=c(28,28))
+  
+  d.4 <- apply(img_28[img_28$label == 4, -1], 2, sum)
+  d.4 <- array(d.4/max(d.4)*255, dim=c(28,28))
+  
+  d.6 <- apply(img_28[img_28$label == 6, -1], 2, sum)
+  d.6 <- array(d.6/max(d.6)*255, dim=c(28,28))
+  
+  d.7 <- apply(img_28[img_28$label == 7, -1], 2, sum)
+  d.7 <- array(d.7/max(d.6)*255, dim=c(28,28))
+  
+  d.z <- apply(img_28[, -1], 2, sum) # apply sum to every column
+  d.z <- array(d.z/max(d.z)*255, dim=c(28,28))
+  d.z[ d.z > 0] = 1
+  
+  png("img/digits_avg.png", width = 800, height = 160)
+  par(mfrow=c(1,5), bty="n")
+  image(d.0, col = gray((128-(0:128))/128), xaxt='n', yaxt='n', asp=1, main = "0")
+  image(d.2, col = gray((128-(0:128))/128), xaxt='n', yaxt='n', asp=1, main = "2")
+  image(d.4, col = gray((128-(0:128))/128), xaxt='n', yaxt='n', asp=1, main = "4")
+  image(d.6, col = gray((128-(0:128))/128), xaxt='n', yaxt='n', asp=1, main = "6")
+  image(d.7, col = gray((128-(0:128))/128), xaxt='n', yaxt='n', asp=1, main = "7")
+  dev.off()
+  
+  png("img/digits_avg_all.png", width = 160, height = 160)
+  par(mfrow=c(1,1), bty="n")
+  image(d.z, col = gray((128-(0:128))/128), xaxt='n', yaxt='n', asp=1, main = "All")
+  #abline(v = c(0,28), h = c(0,28)) #box(which = "figure", lty = "solid", col = "gray60")
+  dev.off()
+```
+
+## Symmetry
+```{r symmetry}
+calcVerticalSymmetry <- function(digit) {
+
+    rowSumDiffs <- rep(0, 28)
+    for (i in 1:28) {                     # loop through each row
+        hDiffs <- 0
+        for (j in 1:(ncol(digit)/2)) {    # loop through half of the columns
+            hDiffs = hDiffs + 1 / (abs(digit[i, j] - digit[i, ncol(digit) - j + 1]) + 1)
+        }
+        rowSumDiffs[i] <- hDiffs
+    }
+    return(rowSumDiffs)  # summarize each row's 'symmetry'
+}
+
+calcHorizontalSymmetry <- function(digit) {
+    
+    colSumDiffs <- rep(0, 28)
+    for (j in 1:28) {                     # loop through each column
+        vDiffs <- 0
+        for (i in 1:(nrow(digit)/2)) {    # loop through half of the rows
+            vDiffs = vDiffs + 1 / (abs(digit[i, j] - digit[nrow(digit) - i + 1, j]) + 1)
+        }
+        colSumDiffs[j] <- vDiffs
+    }
+    return(colSumDiffs)  # summarize each cols' 'symmetry'
+}
+```
+
+
+```{r}
+
+png("img/digit_0_sym.png", width = 500, height = 500)
+  v <- calcVerticalSymmetry(d.0)
+  h <- calcHorizontalSymmetry(d.0)
+  
+  plot(v, main="0", col = "#161F63", pch=0, xlab="Pixels", ylab="Value", asp=1)
+  points(h, col="#3C1357", pch=19)
+dev.off()
+
+png("img/digit_2_sym.png", width = 500, height = 500)
+  v <- calcVerticalSymmetry(d.2)
+  h <- calcHorizontalSymmetry(d.2)
+  
+  plot(v, main="2", col = "#161F63", pch=0, xlab="Pixels", ylab="Value", asp=1)
+  points(h, col="#3C1357", pch=19)
+dev.off()
+
+png("img/digit_4_sym.png", width = 500, height = 500)
+  v <- calcVerticalSymmetry(d.4)
+  h <- calcHorizontalSymmetry(d.4)
+  
+  plot(v, main="4", col = "#161F63", pch=0, xlab="Pixels", ylab="Value", asp=1)
+  points(h, col="#3C1357", pch=19)
+dev.off()
+
+png("img/digit_6_sym.png", width = 500, height = 500)
+  v <- calcVerticalSymmetry(d.6)
+  h <- calcHorizontalSymmetry(d.6)
+  
+  plot(v, main="6", col = "#161F63", pch=0, xlab="Pixels", ylab="Value", asp=1)
+  points(h, col="#3C1357", pch=19)
+dev.off()
+
+png("img/digit_7_sym.png", width = 500, height = 500)
+  v <- calcVerticalSymmetry(d.7)
+  h <- calcHorizontalSymmetry(d.7)
+  
+  plot(v, main="7", col = "#161F63", pch=0, xlab="Pixels", ylab="Value", asp=1)
+  points(h, col="#3C1357", pch=19)
+dev.off()
+
+```
+
+## PCA
+```{r pca_28}
+source.df <- readRDS("data/train_28_skel.rds")
+
+    pca.out <- prcomp(source.df[,-1])
+    
+    pca.cutoff <- min(which(summary(pca.out)$importance[3,] > 0.99))
+    
+    feature.vector <- pca.out$rotation[, 1:pca.cutoff]
+    compact.data <- t( t(feature.vector) %*% t(source.df[,-1]) ) # Take the itersect of features and data frame and flip it back
+  
+    newDF <- data.frame(matrix(ncol = pca.cutoff + 1, nrow = nrow(source.df)))
+    newNames <- c('label', paste0('pca_', 1:pca.cutoff))
+    
+    resultDF <- cbind(source.df$label, compact.data)
+    names(resultDF) <- newNames
+    
+  pca.var <- (pca.out$sdev)^2
+  pca.var.max <- round(max(pca.var),1)
+  
+  pca.comp <- 1:length(pca.var)
+  pca.comp <- as.integer(pca.comp)
+```
+
+```{r}
+  png("img/pca_28_a.png", width = 800, height = 480)
+  plot(pca.comp, pca.var, 
+       main = paste("28x28 Scree Plot - 99% Component: ", pca.cutoff, sep =""),
+       xlab = "Number of Components", 
+       ylab = "Variance",
+       type = "l",
+       col  = "blue",
+       ylim = c(0, pca.var.max),
+       axes = FALSE)
+  
+  axis(1, at=1:length(pca.comp))
+  axis(2, at=0:pca.var.max)
+  abline(v = pca.cutoff, col="#723C2C", lty=3)
+  dev.off()
+  
+  png("img/pca_28_b.png", width = 800, height = 480)
+  plot(summary(pca.out)$importance[3,], type="l", 
+       ylab="% Variance Explained", 
+       xlab="nth component (decreasing order)", 
+       main = paste("28x28 Variance Description - 99% Component: ", pca.cutoff, sep =""),
+       col = "#161F63")
+  abline(h = 0.99, col = "#E97E3B")
+  abline(v = pca.cutoff, col = "#723C2C", lty=3)
+  dev.off()
+```
+
+
+```{r pca_14}
+source.df <- readRDS("data/train_14_skel.rds")
+
+    pca.out <- prcomp(source.df[,-1])
+    
+    pca.cutoff <- min(which(summary(pca.out)$importance[3,] > 0.99))
+    
+    feature.vector <- pca.out$rotation[, 1:pca.cutoff]
+    compact.data <- t( t(feature.vector) %*% t(source.df[,-1]) ) # Take the itersect of features and data frame and flip it back
+  
+    newDF <- data.frame(matrix(ncol = pca.cutoff + 1, nrow = nrow(source.df)))
+    newNames <- c('label', paste0('pca_', 1:pca.cutoff))
+    
+    resultDF <- cbind(source.df$label, compact.data)
+    names(resultDF) <- newNames
+    
+  pca.var <- (pca.out$sdev)^2
+  pca.var.max <- round(max(pca.var),1)
+  
+  pca.comp <- 1:length(pca.var)
+  pca.comp <- as.integer(pca.comp)
+
+  png("img/pca_14_a.png", width = 800, height = 480)
+  plot(pca.comp, pca.var, 
+       main = paste("14x14 Scree Plot - 99% Component: ", pca.cutoff, sep =""),
+       xlab = "Number of Components", 
+       ylab = "Variance",
+       type = "l",
+       col  = "blue",
+       ylim = c(0, pca.var.max),
+       axes = FALSE)
+  
+  axis(1, at=1:length(pca.comp))
+  axis(2, at=0:pca.var.max)
+  abline(v = pca.cutoff, col="#723C2C", lty=3)
+  dev.off()
+  
+  png("img/pca_14_b.png", width = 800, height = 480)
+  plot(summary(pca.out)$importance[3,], type="l", 
+       ylab="% Variance Explained", 
+       xlab="nth component (decreasing order)", 
+       main = paste("14x14 Variance Description - 99% Component: ", pca.cutoff, sep =""),
+       col = "#161F63")
+  abline(h = 0.99, col = "#E97E3B")
+  abline(v = pca.cutoff, col = "#723C2C", lty=3)
+  dev.off()
+```
+
+```{r pca_7}
+source.df <- readRDS("data/train_7_skel.rds")
+
+    pca.out <- prcomp(source.df[,-1])
+    
+    pca.cutoff <- min(which(summary(pca.out)$importance[3,] > 0.99))
+    
+    feature.vector <- pca.out$rotation[, 1:pca.cutoff]
+    compact.data <- t( t(feature.vector) %*% t(source.df[,-1]) ) # Take the itersect of features and data frame and flip it back
+  
+    newDF <- data.frame(matrix(ncol = pca.cutoff + 1, nrow = nrow(source.df)))
+    newNames <- c('label', paste0('pca_', 1:pca.cutoff))
+    
+    resultDF <- cbind(source.df$label, compact.data)
+    names(resultDF) <- newNames
+    
+  pca.var <- (pca.out$sdev)^2
+  pca.var.max <- round(max(pca.var),1)
+  
+  pca.comp <- 1:length(pca.var)
+  pca.comp <- as.integer(pca.comp)
+
+  png("img/pca_7_a.png", width = 800, height = 480)
+  plot(pca.comp, pca.var, 
+       main = paste("7x7 Scree Plot - 99% Component: ", pca.cutoff, sep =""),
+       xlab = "Number of Components", 
+       ylab = "Variance",
+       type = "l",
+       col  = "blue",
+       ylim = c(0, pca.var.max),
+       axes = FALSE)
+  
+  axis(1, at=1:length(pca.comp))
+  axis(2, at=0:pca.var.max)
+  abline(v = pca.cutoff, col="#723C2C", lty=3)
+  dev.off()
+  
+  png("img/pca_7_b.png", width = 800, height = 480)
+  plot(summary(pca.out)$importance[3,], type="l", 
+       ylab="% Variance Explained", 
+       xlab="nth component (decreasing order)", 
+       main = paste("7x7 Variance Description - 99% Component: ", pca.cutoff, sep =""),
+       col = "#161F63")
+  abline(h = 0.99, col = "#E97E3B")
+  abline(v = pca.cutoff, col = "#723C2C", lty=3)
+  dev.off()
+```
+

@@ -1,0 +1,47 @@
+---
+title: "Untitled"
+author: "Corné Oosthuizen - OSTAND005"
+date: "18 June 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r read-data, echo=FALSE, eval=TRUE}
+FILE.TRAIN <- "mnist_data/mnist_train.csv"
+FILE.TEST <- "mnist_data/mnist_test.csv"
+
+train.raw <- read.table(FILE.TRAIN, header = T, dec = ".", sep =",")
+test.raw <- read.table(FILE.TEST, header = T, dec = ".", sep =",")
+
+myset <- c(0,2,4,6,7)
+
+train <- subset(train.raw, label == myset)
+test <- subset(test.raw, label == myset)
+```
+
+```{r}
+library(kohonen)
+require ("kohonen")
+require ("latticeExtra")
+require ("deldir")
+
+train_matrix <- as.matrix(train[,2:785])
+
+som_grid <- somgrid(xdim = 5, ydim=5, topo="hexagonal")
+set.seed(7)
+
+s <- proc.time()
+som_model <- som(train_matrix, grid=som_grid, 
+                 rlen=1000, 
+                 alpha=c(0.05,0.01), 
+                 keep.data = TRUE)
+
+proc.time()-s
+#som.wines <- som (scale (wines), grid = somgrid(5, 5, "hexagonal"))
+
+#df <- as.data.frame (cbind (som.wines$grid$pts, som.wines$codes))
+#levelplot(alcohol ~ x * y, data = df, panel = panel.voronoi, aspect = "iso)
+```
