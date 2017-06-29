@@ -54,6 +54,14 @@ if (!require("stringr")) {
    install.packages("stringr", dependencies = TRUE)
    library(stringr)
 }
+if (!require("gplots")) {
+   install.packages("gplots", dependencies = TRUE)
+   library(gplots)
+   }
+if (!require("RColorBrewer")) {
+   install.packages("RColorBrewer", dependencies = TRUE)
+   library(RColorBrewer)
+}
 
 out.complete.euc <- hclust(Dmat, method="complete")
 out.complete.euc$labels <- dataset.stats[,1]
@@ -63,7 +71,7 @@ out.complete.euc$labels <- dataset.stats[,1]
 #abline(h=0.425)
 
 cut1 <- 0.2
-cut2 <- 0.475
+cut2 <- 0.42
 
 dend <- as.dendrogram(out.complete.euc)
 dend <- set(dend, "labels_cex", 0.7)
@@ -73,8 +81,8 @@ png("img/dendo.png", width = 1024, height = 600)
 par(mar = c(2,1,1,4))
 
 dend %>% ladderize %>%  plot(horiz = TRUE, cex.axis=1); 
-abline(v = cut1, col="#723C2C", lty = 2)
-abline(v = cut2, col="#723C2C", lty = 2)
+abline(v = cut, col="#723C2C", lty = 2)
+abline(v = cut, col="#723C2C", lty = 2)
 
 dev.off()
 
@@ -101,7 +109,7 @@ out.complete.cut <- cutree(out.complete.euc, h = cut1)
 names (out.complete.cut) <- dataset.stats[,1]
 
 clusvec <- out.complete.cut
-colvec <- c("#f26d3d", "#f2b63d", "#74d900", "#008033", "#00ccff", "#23318c", "#c480ff", "#f20041", "#f2b6be", "#401a00", "#403300", "#435949", "#40ffd9", "#99adcc", "#0000f2", "#b32d74", "#330007")
+colvec <- colorRampPalette(c("#2E62A1", "#7B2A95","#E45E2D"))(n = max(clusvec)) ##4C3430
 
 # create empty plot
 png("img/mds_cut1.png", width = 600, height = 600)
@@ -118,6 +126,9 @@ out.complete.cut <- cutree(out.complete.euc, h = cut2)
 names (out.complete.cut) <- dataset.stats[,1]
 
 clusvec <- out.complete.cut
+colvec <- colorRampPalette(c("#2E62A1", "#E45E2D"))(n = max(clusvec)) ##4C3430
+
+#colvec <- c("#4D4D4D","#5DA5DA","#FAA43A","#60BD68","#F15854","#B276B2")
 
 # create empty plot
 png("img/mds_cut2.png", width = 600, height = 600)
