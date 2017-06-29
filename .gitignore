@@ -21,3 +21,5 @@ data/
 !data/test_14_symAdd_pca.rds
 !data/raw/mnist_data.zip
 h20_nn.rds/
+scratch/
+results/
