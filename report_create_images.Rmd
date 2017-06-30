@@ -376,3 +376,19 @@ source.df <- readRDS("data/train_7_skel.rds")
   dev.off()
 ```
 
+```{r student}
+png("img/student_models.png", width = 800, height = 480)
+student.g1 <- readRDS("results/students_g1.rds")
+student.g2 <- readRDS("results/students_g2.rds")
+student.g3 <- readRDS("results/students_g3.rds")
+
+student.df <- merge(student.g1, merge(student.g2,student.g3, by = c('Name', 'Method')), by = c('Name', 'Method'))
+names(student.df) <- c('Name', 'Method', 'G1.RMSE','G1.MSE','G1.Time', 'G2.RMSE', 'G2.MSE','G2.Time', 'G3.RMSE','G3.MSE','G3.Time')
+
+plot(1:11, seq(from = 0, to = 10, length = nrow(student.df)), xaxt='n', xlab ="Models", ylab = "MSE", pch='', cex.axis = 0.9)
+axis(1, at=1:11, labels=student.df$Name, cex.axis = 0.9)
+points(student.df$Name, student.df$G1.MSE, pch = "*", col = "#2E62A1")
+points(student.df$Name, student.df$G2.MSE, pch = "+", col = "#E45E2D")
+points(student.df$Name, student.df$G3.MSE, pch = "#", col = "#7B2A95")
+dev.off()
+```

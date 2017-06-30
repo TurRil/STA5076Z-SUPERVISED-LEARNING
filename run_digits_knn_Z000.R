@@ -5,18 +5,18 @@
 library(caret)
 library(FNN)
 
-train <- as.data.frame(readRDS('data/train_14_symAdd_pca.rds'))
-test <- as.data.frame(readRDS('data/test_14_symAdd_pca.rds'))
+train <- as.data.frame(readRDS('data/train_28.rds'))
+test <- as.data.frame(readRDS('data/test_28.rds'))
 
-names(test)[1] <- "label"
+names(train)[1] <- "label"
 train[,1] <- as.factor(train[,1])
 
 names(test)[1] <- "label"
 test[,1] <- as.factor(test[,1])
 
 
-mod.file <- "results/digit_knn.rds"
-mod.txt <- "results/digit_knn.txt"
+mod.file <- "results/digit_knn_Z000.rds"
+mod.txt <- "results/digit_knn_Z000.txt"
 
   if (file.exists(mod.file)) {
   
@@ -35,8 +35,13 @@ mod.txt <- "results/digit_knn.txt"
 
 cm <- confusionMatrix(mod, test$label)
 accuracy <- cm$overall["Accuracy"]
+accuracy
+
+yhatTest = as.factor(as.matrix(mod))
+a = (yhatTest == test$label)
+saveRDS(a, file="results/digit_knn_Z000_err.rds")
 
 fc <- file(mod.txt)
-writeLines (paste("RunTime: ", runTime), fc)
-writeLines (paste("Accuracy: ", accuracy), fc)
+writeLines (c(paste("RunTime: ", runTime), paste("Accuracy: ", accuracy)), fc)
 close(fc)
+

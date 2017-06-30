@@ -1,18 +1,18 @@
 ---
-title: "STA5076Z: SUPERVISED LEARNING - PROJECT"
+title: 'STA5076Z: SUPERVISED LEARNING - PROJECT'
 author: "Corne Oosthuizen - OSTAND005"
 date: 'Due: 30 July 2017'
 output:
-  word_document: default
   html_document:
     theme: cosmo
     toc: yes
     toc_depth: 2
   comment: '>'
+  word_document: default
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = FALSE, eval = TRUE, warning = FALSE)
 ```
 
 ```{r getUtils}
@@ -37,14 +37,16 @@ The following digits where assigned to me for this project:
 ![](img\obs_train.png)
 ![](img\obs_test.png)
 
-Digit | Train | Test
------ | ----- | ----
-0 | 5923 | 980
-2 | 5958 | 1032
-4 | 5842 | 982
-6 | 5918 | 958
-7 | 6265 | 1028
-Total | 29906 | 4980
+```{r}
+library(formattable)
+
+digits <- data.frame(c(0,2,4,6,7), c(5923, 5958, 5842, 5918, 6265), c(980, 1032, 982, 958, 1028))
+names(digits) <- c("Digit", "Train", "Test")
+digits <- rbind(digits, apply(digits, 2, sum))
+digits[6,1] <- ""
+
+formattable(digits, row.names = FALSE)
+```
 
 ## Data Trasformations
 
@@ -112,75 +114,378 @@ The table describes the name, type, transformation actions performed on that dat
 
 Running a cluster analysis and visualising the distribution with Multidimentional scaling gives:
 
+![Dendogram Describing the various datasets, lines at h=0.2 and h=0.475](img\dendo.png)
 
-TODO: DENDOGRAM and MDS
+![Multidimentional Scaling at h=0.2](img\mds_cut1.png)
+
+![Multidimentional Scaling at h=0.475](img\mds_cut2.png)
+
+The label is a composition of the the type and size (table below), symmetry (binary), skeleton (binary), and PCA (binary). So For example the cluster that can be seen on the top left, A100 and A110 describes a training with size 28x28, symmetry and A110 has skeleton applied to the digit. Below that we can see A111 and A101 where the same kind of grouping exists but with PCA applied. We can see this kind of grouping continues with most of the other images sizes and dataset types. Intresting is that on images sizes of 14x14 and 7x7 the clusters seem to be closer together than their bigger versions.
+
+```{r}
+digits <- data.frame(c(28,14,7,0), c('A','B','C','D'), c('Z','Y','X','W'))
+names(digits) <- c("Size", "Train", "Test")
+
+formattable(digits, row.names = FALSE)
+```
+
+## Model Selection
+
+This problem has been explored many times before ^[10]^ and looking at the leader board directions it is most likely that because the data cannot be described in a linear model a higher predeictive accuracy will be obtained by using models that use higher dimensional mappings, but losing out on interprability. The models selected can then be used to run the various tranformed datasets and see if the transformations improve accuracy in each case.
 
 ## KNN
 
-## SVM
+Implemented using the `caret` `train` method and using a repeated cross validation, a cross validation method repeated 4 times each with 5 folds. The best fitted model returns:
 
-## Random Forest
+```
+k-Nearest Neighbors 
+
+29906 samples
+   98 predictor
+    5 classes: '0', '2', '4', '6', '7' 
+
+No pre-processing
+Resampling: Cross-Validated (5 fold, repeated 4 times) 
+Summary of sample sizes: 23926, 23925, 23925, 23924, 23924, 23924, ... 
+Resampling results across tuning parameters:
+
+  k  Accuracy  Kappa
+  5  0.991     0.989
+  7  0.990     0.988
+  9  0.990     0.987
+
+Accuracy was used to select the optimal model using  the largest value.
+The final value used for the model was k = 5.
+```
+
+So based on this running the algorithm with `k = 5` as the selected hyperparameter, run that against the un-transformed dataset (A000/Z000) and then on (B111/Y111)
+
+```
+Confusion Matrix and Statistics (A000/Z000) - RunTime:  143.619828939438 (2min 24sec)
+
+          Reference
+Prediction    0    2    4    6    7
+         0  974   11    3    6    0
+         2    2  999    1    0    6
+         4    0    2  972    3    7
+         6    3    1    4  949    0
+         7    1   19    2    0 1015
+
+Overall Statistics
+                                             
+               Accuracy : 0.986              
+                 95% CI : (0.982, 0.989)     
+    No Information Rate : 0.207              
+    P-Value [Acc > NIR] : <0.0000000000000002
+                                             
+                  Kappa : 0.982              
+ Mcnemar's Test P-Value : NA
+```
+
+```
+Confusion Matrix and Statistics (B111/Y111) - RunTime:  10.498685836792 (10sec)
+
+          Reference
+Prediction    0    2    4    6    7
+         0  974    8    0    4    0
+         2    2 1004    0    0    5
+         4    0    1  974    2    6
+         6    3    1    6  952    0
+         7    1   18    2    0 1017
+
+Overall Statistics
+                                         
+               Accuracy : 0.9882         
+                 95% CI : (0.9847, 0.991)
+    No Information Rate : 0.2072         
+    P-Value [Acc > NIR] : < 2.2e-16      
+                                         
+                  Kappa : 0.9852         
+ Mcnemar's Test P-Value : NA 
+```
+
+In this case th transformed dataset improved accuracy by *`r abs(0.986 - 0.9882)*100`* and the training time was reduced by *`r format(143.619828939438 - 10.498685836792, nsmall = 2)`* seconds.
 
 ## Neural Network
 
+The Neural network was trained with the same datasets the training data was split into a training and validation set (80/20) and the test set was used for predictions and reporting.
+
+```
+Confusion Matrix and Statistics (AZ000) - RunTime:  126.3698 (2min 6sec)
+
+          Reference
+Prediction    0    2    4    6    7
+         0  965    5    1    6    1
+         2    1 1007    6    3   16
+         4    2    4  964    5    3
+         6    9    7    3  944    0
+         7    3    9    8    0 1008
+
+Overall Statistics
+                                             
+               Accuracy : 0.982              
+                 95% CI : (0.977, 0.985)     
+    No Information Rate : 0.207              
+    P-Value [Acc > NIR] : <0.0000000000000002
+                                             
+                  Kappa : 0.977              
+ Mcnemar's Test P-Value : NA
+ ```
+ 
+ ```
+Confusion Matrix and Statistics - (BY111) - RunTime:  25.94692 (26sec)
+
+          Reference
+Prediction    0    2    4    6    7
+         0  969    6    1    9    2
+         2    4 1012    9    1   25
+         4    0    1  961    4    6
+         6    6    5    7  943    0
+         7    1    8    4    1  995
+
+Overall Statistics
+                                             
+               Accuracy : 0.98               
+                 95% CI : (0.976, 0.984)     
+    No Information Rate : 0.207              
+    P-Value [Acc > NIR] : <0.0000000000000002
+                                             
+                  Kappa : 0.975              
+ Mcnemar's Test P-Value : 0.0133   
+```
+
+The accuracy did not improve at all and seems to have slightly worstened, although the training time was reduced by *`r format(126.3698 - 25.94692, nsmall = 2)`* seconds.
+
+```{r errors}
+test <- as.data.frame(readRDS('data/test_28.rds')) # nice images
+
+knn_z000 <- readRDS("results/digit_knn_Z000_err.rds")
+knn_Y111 <- readRDS("results/digit_knn_y111_err.rds")
+nn_z000 <- readRDS("results/digit_nn_Z000_err.rds")
+nn_Y111 <- readRDS("results/digit_nn_y111_err.rds")
+
+all.a <- cbind(knn_z000, knn_Y111, nn_z000, nn_Y111)
+all.b <- apply(all.a, 1, which.max) - 1 
+all.c <- which(all.b > 0)
+all.r <- which(all.b == 0)
+all.d <- test[all.c,]
+all.e <- test[all.b,]
+
+all.sum <- nrow(test) - apply(all.a, 2, sum)
+names(all.sum) <- c("KNN (AZ000)", "KNN (AZ000)", "NN (Z000)", "NN (BY111)")
+
+print(all.sum, row.names = FALSE)
+```
+
+This still results in a number of classification errors which looked at the following digits `r nrow(all.d)` are the ones that is generally wrongly identified:
+
+```{R}
+par(mfrow=c(4,4),pty='s',mar=c(1,1,1,1),xaxt='n',yaxt='n')
+
+for(i in 1:nrow(all.d)) {
+  
+  image(matrix(unlist(all.d[i, -1]), nrow = 28), col = gray((128-(0:128))/128), 
+        xaxt='n', yaxt='n', asp=1, main = paste("T: ", all.d[i, 1]))
+}
+```
+
 ## Conclusion
 
-TODO: Compare model accuracy
+The two model used in this example gives a quite reasonable accuracy (around `r format((98+98.2+98.6+98.82)/4, nsmall = 2)`%) which can be improved by using an ensemble method that will take the most "voted" for digit and return that result, this will push the accuracy up to `r format(length(all.r)/nrow(test), nsmall = 2)`.
 
-
-
-You have been randomly assigned 5 digits to classify (see digits.pdf on Vula). You should begin by restricting your datasets to only contain the images for the digits that you have been assigned. Your ﬁnal training and test sets should contain roughly 30,000 and 5,000 images, respectively.
-
-You must submit a neat report with your ﬁndings. In your report, you should:
-* Compare the performances of diﬀerent classiﬁers and determine which is optimal. You may use any supervised or unsupervised techniques to tackle this problem
-* Clearly motivate your model choices and hyperparameter settings
-* Clearly explain your ﬁndings. Why does method A outperform method B?
-* Use appropriate graphs and tables to summarise your ﬁndings
-
-You will be heavily penalised if you simply dump model outputs into a document without explaining your results. You need to demonstrate that you understand what you are doing!
-
-Creativity and out-of-the-box thinking will be rewarded (if correct)!
-
+The selection of models, which can be expanded to include Random Forests, K-means, and Support Vector Maschine (SVM); and the breatdh of the dataset searching could notbe fully explored before the due date of this report.
 
 # 2 - Student Performance Data Set
 
 ## Problem Statement
 
+The student performance^[6]^^[7]^ for a set of students are described in the dataset with demographic information pertaining to each one. There are two subjects recorded Math and Portugese. Given the demographic information, access to study information, willingness to study and available hours (free and social) what is the likely score for their first and second semester and then their final expected grade.
+
 ## Data Description
+```{r p2-attributes}
 
+library(formattable)
 
+desc <- matrix(ncol = 2, nrow = 0)
+
+desc <- rbind(desc, c("school", "student's school (binary: 'GP' - Gabriel Pereira or 'MS' - Mousinho da Silveira)"))
+desc <- rbind(desc, c("sex", "student's sex (binary: 'F' - female or 'M' - male)"))
+desc <- rbind(desc, c("age", "student's age (numeric: from 15 to 22)"))
+desc <- rbind(desc, c("address", "student's home address type (binary: 'U' - urban or 'R' - rural)"))
+desc <- rbind(desc, c("famsize", "family size (binary: 'LE3' - less or equal to 3 or 'GT3' - greater than 3)"))
+desc <- rbind(desc, c("Pstatus", "parent's cohabitation status (binary: 'T' - living together or 'A' - apart)"))
+desc <- rbind(desc, c("Medu", "mother's education (numeric: 0 - none,  1 - primary education (4th grade), 2 – 5th to 9th grade, 3 – secondary education or 4 – higher education)"))
+desc <- rbind(desc, c("Fedu", "father's education (numeric: 0 - none,  1 - primary education (4th grade), 2 – 5th to 9th grade, 3 – secondary education or 4 – higher education)"))
+desc <- rbind(desc, c("Mjob", "mother's job (nominal: 'teacher', 'health' care related, civil 'services' (e.g. administrative or police), 'at_home' or 'other')"))
+desc <- rbind(desc, c("Fjob", "father's job (nominal: 'teacher', 'health' care related, civil 'services' (e.g. administrative or police), 'at_home' or 'other')"))
+desc <- rbind(desc, c("reason", "reason to choose this school (nominal: close to 'home', school 'reputation', 'course' preference or 'other')"))
+desc <- rbind(desc, c("guardian", "student's guardian (nominal: 'mother', 'father' or 'other')"))
+desc <- rbind(desc, c("traveltime", "home to school travel time (numeric: 1 - <15 min., 2 - 15 to 30 min., 3 - 30 min. to 1 hour, or 4 - >1 hour)"))
+desc <- rbind(desc, c("studytime", "weekly study time (numeric: 1 - <2 hours, 2 - 2 to 5 hours, 3 - 5 to 10 hours, or 4 - >10 hours)"))
+desc <- rbind(desc, c("failures", "number of past class failures (numeric: n if 1<=n<3, else 4)"))
+desc <- rbind(desc, c("schoolsup", "extra educational support (binary: yes or no)"))
+desc <- rbind(desc, c("famsup", "family educational support (binary: yes or no)"))
+desc <- rbind(desc, c("paid", "extra paid classes within the course subject (Math or Portuguese) (binary: yes or no)"))
+desc <- rbind(desc, c("activities", "extra-curricular activities (binary: yes or no)"))
+desc <- rbind(desc, c("nursery", "attended nursery school (binary: yes or no)"))
+desc <- rbind(desc, c("higher", "wants to take higher education (binary: yes or no)"))
+desc <- rbind(desc, c("internet", "Internet access at home (binary: yes or no)"))
+desc <- rbind(desc, c("romantic", "with a romantic relationship (binary: yes or no)"))
+desc <- rbind(desc, c("famrel", "quality of family relationships (numeric: from 1 - very bad to 5 - excellent)"))
+desc <- rbind(desc, c("freetime", "free time after school (numeric: from 1 - very low to 5 - very high)"))
+desc <- rbind(desc, c("goout", "going out with friends (numeric: from 1 - very low to 5 - very high)"))
+desc <- rbind(desc, c("Dalc", "workday alcohol consumption (numeric: from 1 - very low to 5 - very high)"))
+desc <- rbind(desc, c("Walc", "weekend alcohol consumption (numeric: from 1 - very low to 5 - very high)"))
+desc <- rbind(desc, c("health", "current health status (numeric: from 1 - very bad to 5 - very good)"))
+desc <- rbind(desc, c("absences", "number of school absences (numeric: from 0 to 93)"))
+
+desc <- rbind(desc, c("G1", "first period grade (numeric: from 0 to 20)"))
+desc <- rbind(desc, c("G2", "second period grade (numeric: from 0 to 20)"))
+desc <- rbind(desc, c("G3", "final grade (numeric: from 0 to 20, output target)"))
+
+desc <-as.data.frame(desc)
+names(desc) <- c("Variable", "Description")
+formattable(desc)
+```
+
+The data variables span a range of demographic data, some of which might be applicable to the results that we would like to predict.
+
+## Using a list of supervised methods
+
+The Math dataset only contains 396 observations whereas the Portuguese dataset contains 649 observations, there are students that have participated in both courses. For the training and test set I've limited it to just the Portugese set which is then subdivided into a training and test set on a random selected 75% split. This results in a training set of 488 observations and test set of 161 observations. The training set is then run in a repeated cross fold validation, for this configuration that was set to repeat 4 times and each time do 4 folds. The library used was the `caret` package which contains a training wrapper function for a comprehensive list of learning models, the model selection^[8]^ was based on the algorithms covered in class and additionally intrest. The training was repeated to predict the first semester (G1 - *), second semester (G2 - +) and final mark (G3 - #). The tale also includes the time it took to train each model in seconds and is sorted on lowest Mean Square Error (MSE) of the final mark (lowest to highest). The MSE for each predictor is calculated only on the testing set that was set aside in the beginning.
+
+```{r p2-accuracy, echo=FALSE, eval=TRUE}
+options(digits = 3)
+
+student.g1 <- readRDS("results/students_g1.rds")
+
+size <- matrix(nrow = nrow(student.g1), ncol = 1)
+for (i in 1:nrow(student.g1)) {
+  df.name <- student.g1[i, 1]
+  df.data <- readRDS(paste('results/student_', df.name, '_g1.rds', sep=""))
+  size[i,1] <- object.size(df.data)/1024/1024
+}
+student.g1 <- cbind(student.g1, size)
+
+student.g2 <- readRDS("results/students_g2.rds")
+
+size <- matrix(nrow = nrow(student.g2), ncol = 1)
+for (i in 1:nrow(student.g2)) {
+  df.name <- student.g2[i, 1]
+  df.data <- readRDS(paste('results/student_', df.name, '_g2.rds', sep=""))
+  size[i,1] <- object.size(df.data)/1024/1024
+}
+student.g2 <- cbind(student.g2, size)
+
+student.g3 <- readRDS("results/students_g3.rds")
+
+size <- matrix(nrow = nrow(student.g3), ncol = 1)
+for (i in 1:nrow(student.g3)) {
+  df.name <- student.g3[i, 1]
+  df.data <- readRDS(paste('results/student_', df.name, '_g3.rds', sep=""))
+  size[i,1] <- object.size(df.data)/1024/1024
+}
+student.g3 <- cbind(student.g3, size)
+
+student.df <- merge(student.g1, merge(student.g2,student.g3, by = c('Name', 'Method')), by = c('Name', 'Method'))
+names(student.df) <- c('Name', 'Method', 
+                       'G1.RMSE', 'G1.MSE', 'G1.Time', 'G1.Size', 
+                       'G2.RMSE', 'G2.MSE', 'G2.Time', 'G2.Size',
+                       'G3.RMSE', 'G3.MSE', 'G3.Time', 'G3.Size')
+
+student.df <- student.df[order(student.df$G3.RMSE),]
+student.df <- cbind(student.df, (1-student.df$G3.RMSE/20)*100)
+student.df <- student.df[, c(1,2, 4,8,12, 3,7,11, 15, 5,9,13, 6,10,14)]
+names(student.df)[9] <- 'G3.Accurracy'
+
+formattable(student.df, row.names = FALSE)
+```
+
+All the models selected seem to converge to a similar Root Mean Square Error (RMSE). This might be the case because of the small number of observation in our training set. The Random Forest [rf] model results in the best result for the final predictor G3 and is generally quite good accross G2 and G1. The Boosted Generalized Linear Model [glmboost] (fitting generalized linear models by likelihood based boosting) performs similarly well and slightly better than the Generalized Linear Model [glm]. By far the worst model looks to be k-Nearest Neighbors, it has the largest error on all of the predictors although being one of the fastest models to train.
+
+![Student Model Comparison](img\student_models.png)
+
+General output:
+```
+488 samples
+ 30 predictor
+
+No pre-processing
+Resampling: Cross-Validated (4 fold, repeated 4 times) 
+Summary of sample sizes: 366, 366, 367, 365, 366, 367, ...
+```
+
+Looking at the `rf`, `glmboost`, `lasso` more closely:
+
+```
+Random Forest 
+
+Resampling results across tuning parameters:
+
+  mtry  RMSE  Rsquared
+   2    2.82  0.308   
+  20    2.72  0.309   
+  39    2.75  0.299   
+
+RMSE was used to select the optimal model using  the smallest value.
+The final value used for the model was mtry = 20.
+```
+```
+Boosted Generalized Linear Model 
+
+Resampling results across tuning parameters:
+
+  mstop  RMSE  Rsquared
+   50    2.84  0.255   
+  100    2.80  0.271   
+  150    2.79  0.272   
+
+Tuning parameter 'prune' was held constant at a value of no
+RMSE was used to select the optimal model using  the smallest value.
+The final values used for the model were mstop = 150 and prune = no.
+```
+```
+The lasso 
+
+Resampling results across tuning parameters:
+
+  fraction  RMSE  Rsquared
+  0.1       3.01  0.206   
+  0.5       2.78  0.272   
+  0.9       2.83  0.261   
+
+RMSE was used to select the optimal model using  the smallest value.
+The final value used for the model was fraction = 0.5
+```
+
+The `caret` `train` method which sets up a grid of tuning parameters for a number of classification and regression routines, fits each model and calculates a resampling based performance measure; can with some time be used to further explore the hyperparameters for the top models.
 
 ## Conclusion
 
+The models did all converge on similar error rate and accuracy, all of which could be improved if more observations where obtainable. Generally the results for G1 (*) and G2 (+) are a lot better than for G3 (#) and it might be better to create an ensemble between the top 3 or 4 models for each predictor. The best model to select for this problem is likely to be either the Boosted Generalized Linear Model [glmboost] or the Lasso [lasso] method, both display a resonable level of accuracy but significantly faster training times than the Random Forest [rf]. In terms of final model size the Lasso [lasso] method produces a much smaller object that would be easily reproducable.
 
+# Notes
 
-You are required to source an interesting supervised learning problem of your own. Your dataset could come from your organisation or from an online repository such as www.kaggle.com. It must contain a numerical outcome variable, and a suﬃciently large number of predictors and observations. You should model these data using various supervised learning techniques and identify the best method for your problem.
+The project was helpfull to understand the Supervised Learning methods available and how they can be practically applied to regression and classification problems. The time spend on changing and transforming the MNIST didigt data was far more than I expected and that impacted the approach to the number and scale of the models that could be run on that dataset. 
 
-You must submit a neat report with your ﬁndings. In your report, you should:
-* Very clearly explain your problem. Remember that your marker will not be familiar with your speciﬁc problem
-* Clearly describe your dataset, both in writing and with graphs and/or tables
-* Compare the performances of diﬀerent models and determine which is optimal. You may use any supervised or unsupervised techniques to tackle this problem • Clearly motivate your model choices and hyperparameter settings
-* Clearly explain your ﬁndings. Why does method A outperform method B?
-* Use appropriate graphs and tables to summarise your ﬁndings
-
-Each student should work on a diﬀerent dataset. If you intend to use a dataset from a public repository, please let your lecturer know which dataset you are using so that it can be reserved for you only (ﬁrst come, ﬁrst served!).
-
-If you intend on working with conﬁdential data from your organisation, note that only the course lecturers will have access to your ﬁnal report and that this will be returned to you once it is marked. The data and ﬁndings will be treated as conﬁdential and will not be disclosed to anyone at any time.
-
-
+The selection of the student record dataset was a little smaller than expected but would be good start for approaching the "Open University Learning Analytics dataset Data Set"^[9]^ which contains a much more comprehensive set of variables and a much larger set of observations.
 
 # References
 
-* Project Description (SupLearnProject2017.pdf), Author: Miguel Lacerda. Last Accessed: 19-May-2017 14:06. Vula Resources. 
+* Project Description (SupLearnProject2017.pdf), Author: Miguel Lacerda. Last Accessed: 19-May-2017. Vula Resources. 
 * Skeletonisation, Author: Jon Clayden. Last Accessed: 28-June-2017. URL: https://www.rdocumentation.org/packages/mmand/versions/1.5.0
 * Image: Skel.png. Last Accessed: 28-June-2017. URL: https://commons.wikimedia.org/wiki/File:Skel.png
 * Classiﬁcation and Image Processing on MNSIT Data Set, Author: Andrew Halsaver, Brian Becker, & Farshad Chitchian. Last Accessed: 28-June-2017. URL: http://bribecker.github.io/img/handWrittenDigitClassification.pdf
 * MNIST Dataset: Classifying Images, Author: Brian Becker. Last Accessed: 28-June-2017. URL: http://bribecker.github.io/blog/MNIST-3/
+* Student Performance Data Set, Author: Paulo Cortez, University of Minho, GuimarÃ£es, Portugal, http://www3.dsi.uminho.pt/pcortez, URL: https://archive.ics.uci.edu/ml/datasets/Student+Performance
+* P. Cortez and A. Silva. Using Data Mining to Predict Secondary School Student Performance. In A. Brito and J. Teixeira Eds., Proceedings of 5th FUture BUsiness TEChnology Conference (FUBUTEC 2008) pp. 5-12, Porto, Portugal, April, 2008, EUROSIS, ISBN 978-9077381-39-7. URL: http://www3.dsi.uminho.pt/pcortez/student.pdf
+* Caret, Available Models. Last Accessed: 30-June-2017. URL: https://topepo.github.io/caret/available-models.html
+* Open University Learning Analytics dataset Data Set. Released under CC-BY 4.0. Please use this paper for your citation: Kuzilek, J., Hlosta, M., Herrmannova, D., Zdrahal, Z. and Wolff, A. OU Analyse: Analysing At-Risk Students at The Open University. Learning Analytics Review, no. LAK15-1, March 2015, ISSN: 2057-7494. URL: https://archive.ics.uci.edu/ml/datasets/Open+University+Learning+Analytics+dataset
+* Digit Recognizer, Learn computer vision fundamentals with the famous MNIST data. Last Accessed: 30 June 2017. URL: https://www.kaggle.com/c/digit-recognizer
 
-5
-
-* R Core Team (2016). R: A language and environment for statistical computing. R Foundation for Statistical Computing,
-Vienna, Austria. URL: https://www.R-project.org/.
+11
+* R Core Team (2016). R: A language and environment for statistical computing. R Foundation for Statistical Computing, Vienna, Austria. 
+  URL: https://www.R-project.org/.
 * Jon Clayden (2017). mmand: Mathematical Morphology in Any Number of Dimensions. R package version 1.5.0.
   https://CRAN.R-project.org/package=mmand
 * Joern Schulz Peter Toft <pto@imm.dtu.dk> Jesper James Jensen <jjj@oedan.dk> Peter Philipsen <pap@imm.dtu.dk> (2010). PET:
@@ -201,10 +506,12 @@ Vienna, Austria. URL: https://www.R-project.org/.
   Mayer, Brenton Kenkel, the R Core Team, Michael Benesty, Reynald Lescarbeau, Andrew Ziem, Luca Scrucca, Yuan Tang, Can Candan
   and Tyler Hunt. (2017). caret: Classification and Regression Training. R package version 6.0-76.
   https://CRAN.R-project.org/package=caret
+* Ben Hamner (2017). Metrics: Evaluation Metrics for Machine Learning. R package version 0.1.2.
+  https://CRAN.R-project.org/package=Metrics
   
 
 ```{r reference, echo = FALSE, eval = FALSE}
 # To get current citation information at time of document writing
-#citation("caret")
+citation("Metrics")
 ```
 
